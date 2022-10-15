@@ -1,0 +1,119 @@
+﻿@page "/departments"
+@using EmployeeManagement.Shared
+@using System
+@using System.Linq
+@using static MudBlazor.CategoryTypes
+@inject MudBlazor.ISnackbar snackBar
+@inject IDialogService DialogService
+@inject IJSRuntime JsRuntime
+
+
+
+<h3>Schools</h3>
+<MudCard Elevation="25">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h6">Add / Edit Departments</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        <EditForm OnValidSubmit="Add" OnInvalidSubmit='()=>snackBar.Add("Provide a name",Severity.Warning)' Model="@department">
+            <MudTextField @bind-Value="department.DepartmentName" Label="Department Name" Variant="Variant.Text" Margin="Margin.Normal"></MudTextField>
+            <MudButton Variant="Variant.Filled" Color="Color.Info" OnClick="Add">Add Department</MudButton>
+        </EditForm>
+    </MudCardContent>
+</MudCard>
+
+<MudTable RowsPerPage="5" @ref="@_table" Hover="true" Breakpoint="Breakpoint.Sm" LoadingProgressColor="Color.Info" Style="color: white" Elevation="25" Items="GetAll()" Filter="new Func<Department, bool>(Search)" @bind-department="department">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Employees</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString" Placeholder="Search for Departments..." Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Rounded.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Department Id</MudTh>
+        <MudTh>Department Name</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.DepartmentId</MudTd>
+        <MudTd DataLabel="Department Name">@context.DepartmentName</MudTd>
+        <MudTd DataLabel="Actions">
+            <MudFab @onclick="@(()=>Update(context))" Color="Color.Primary" Icon="@Icons.Material.Filled.Edit" Size="Size.Small" IconSize="Size.Small" />
+            <MudFab @onclick="@(()=>Delete(context))" Color="Color.Secondary" Icon="@Icons.Material.Filled.Delete" Size="Size.Small" IconSize="Size.Small" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudPagination ShowFirstButton="true" ShowLastButton="true" SelectedChanged="PageChanged" Count="@((_table.GetFilteredItemsCount() + _table.RowsPerPage - 1) / _table.RowsPerPage)" Class="pa-4" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private string searchString = "";
+    private Employee employee = new Employee();
+    private Department department = new Department();
+    private List<Employee> employees = new List<Employee>();
+    private List<Department> departments = new List<Department>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        departments = departmentService.GetAll();
+        employees = employeeService.GetAll();
+    }
+
+    private bool Search(Department department)
+    {
+        if (string.IsNullOrWhiteSpace(searchString)) return true;
+        if (department.DepartmentName.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    private List<Department> GetAll()
+    {
+        departments = departmentService.GetAll();
+        return departments;
+    }
+
+    private void Add()
+    {
+        if (department.DepartmentId == 0)
+        {
+            departmentService.Add(department);
+        }
+        else
+        {
+            departmentService.Update(department);
+        }
+        department = new Department();
+        snackBar.Add("Department Added.", Severity.Success);
+        GetAll();
+    }
+
+    private void Update(Department record)
+    {
+        department = record;
+        StateHasChanged();
+    }
+
+    private async Task Delete(Department record)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure?");
+        if (confirmed)
+        {
+            departmentService.Delete(record);
+            snackBar.Add("Department Deleted.", Severity.Success);
+            GetAll();
+        }
+    }
+
+    private MudTable<Department> _table;
+
+    private void PageChanged(int i)
+    {
+        _table.NavigateTo(i - 1);
+    }
+
+}

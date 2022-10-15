@@ -1,0 +1,140 @@
+﻿@page "/employees"
+@using EmployeeManagement.Shared
+@using System
+@using System.Linq
+@using static MudBlazor.CategoryTypes
+@inject MudBlazor.ISnackbar snackBar
+@inject IDialogService DialogService
+@inject IJSRuntime JsRuntime
+
+
+
+<h3>Schools</h3>
+<MudCard Elevation="25">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h6">Add / Edit Employees</MudText>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        <EditForm OnValidSubmit="Add" OnInvalidSubmit='()=>snackBar.Add("Provide a name",Severity.Warning)' Model="@employee">
+        <MudGrid>
+            <MudItem xs="12" sm="4" md="6">
+                    <MudTextField @bind-Value="employee.FirstName" Label="First Name" Variant="Variant.Text" Margin="Margin.Normal"></MudTextField>
+            </MudItem>
+            <MudItem xs="12" sm="4" md="6">
+                    <MudTextField @bind-Value="employee.LastName" Label="Last Name" Variant="Variant.Text" Margin="Margin.Normal"></MudTextField>
+            </MudItem>
+            <MudItem xs="12" sm="4" md="6">
+                    <MudTextField @bind-Value="employee.ManNumber" Label="Man Number" Variant="Variant.Text" Margin="Margin.Normal"></MudTextField>
+            </MudItem>
+            <MudItem xs="12" sm="4" md="6">
+                    <MudSelect T="int" Label="Select Department" @bind-Value="employee.DepartmentId">
+                        @foreach (var department in departments)
+                        {
+                            <MudSelectItem T="int" Value="@department.DepartmentId">@department.DepartmentName</MudSelectItem>
+                        }
+                    </MudSelect>
+            </MudItem>
+        </MudGrid>
+        <MudButton Variant="Variant.Filled" Color="Color.Info" OnClick="Add">Add Employee</MudButton>
+        </EditForm>
+    </MudCardContent>
+</MudCard>
+
+<MudTable RowsPerPage="5" @ref="@_table" Hover="true" Breakpoint="Breakpoint.Sm" LoadingProgressColor="Color.Info" Style="color: white" Elevation="25" Items="GetAll()" Filter="new Func<Employee, bool>(Search)" @bind-employee="employee">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Employees</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchString" Placeholder="Search for Employees..." Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Rounded.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>First Name</MudTh>
+        <MudTh>Last Name</MudTh>
+        <MudTh>Man Number</MudTh>
+        <MudTh>Department</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="First Name">@context.FirstName</MudTd>
+        <MudTd DataLabel="Last Name">@context.LastName</MudTd>
+        <MudTd DataLabel="Last Name">@context.ManNumber</MudTd>
+        <MudTd DataLabel="Last Name">@context.Department.DepartmentName</MudTd>
+        <MudTd DataLabel="Actions">
+            <MudFab @onclick="@(()=>Update(context))" Color="Color.Primary" Icon="@Icons.Material.Filled.Edit" Size="Size.Small" IconSize="Size.Small" />
+            <MudFab @onclick="@(()=>Delete(context))" Color="Color.Secondary" Icon="@Icons.Material.Filled.Delete" Size="Size.Small" IconSize="Size.Small" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudPagination ShowFirstButton="true" ShowLastButton="true" SelectedChanged="PageChanged" Count="@((_table.GetFilteredItemsCount() + _table.RowsPerPage - 1) / _table.RowsPerPage)" Class="pa-4" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private string searchString = "";
+    private Employee employee = new Employee();
+    private Department department = new Department();
+    private List<Employee> employees = new List<Employee>();
+    private List<Department> departments = new List<Department>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        departments = departmentService.GetAll();
+        employees = employeeService.GetAll();
+    }
+
+    private bool Search(Employee employee)
+    {
+        if (string.IsNullOrWhiteSpace(searchString)) return true;
+        if (employee.FirstName.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    private List<Employee> GetAll()
+    {
+        employees = employeeService.GetAll();
+        return employees;
+    }
+
+    private void Add()
+    {
+        if (employee.EmployeeId == 0)
+        {
+            employeeService.Add(employee);
+        }
+        else
+        {
+            employeeService.Update(employee);
+        }
+        employee = new Employee();
+        snackBar.Add("Employee Added.", Severity.Success);
+        GetAll();
+    }
+
+    private void Update(Employee record)
+    {
+        employee = record;
+        StateHasChanged();
+    }
+
+    private async Task Delete(Employee record)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure?");
+        if (confirmed)
+        {
+            employeeService.Delete(record);
+            snackBar.Add("Employee Deleted.", Severity.Success);
+            GetAll();
+        }
+    }
+
+    private MudTable<Employee> _table;
+
+    private void PageChanged(int i)
+    {
+        _table.NavigateTo(i - 1);
+    }
+
+}
